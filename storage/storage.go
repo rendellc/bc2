@@ -8,43 +8,50 @@ import (
 	"runtime"
 )
 
-type storage struct {
+type Storage struct {
 	storeDir string
 }
 
-func LoadStorage() storage {
+func LoadStorage() Storage {
 	storeDir := getConfigDirectory()
 
-	return storage{
+	return Storage{
 		storeDir: storeDir,
 	}
 }
 
-func (s storage) GetScriptNames() []string {
+func (s Storage) GetScriptInfos() []ScriptInfo {
 	scriptDir := s.getScriptDir()
 	dirEntries, err := os.ReadDir(scriptDir)
 	if err != nil {
 		log.Fatalf("Unable to ReadDir in script path: %v", err)
 	}
 
-	files := []string{}
+	infos := []ScriptInfo{}
 	for _, dirEntry := range dirEntries {
-		files = append(files, dirEntry.Name())
+		info, err := dirEntry.Info()
+		if err != nil {
+			log.Printf("Error getting file info for %v", dirEntry)
+		}
+		infos = append(infos, ScriptInfo{
+			name: dirEntry.Name(),
+			fileInfo: info,
+		})
 	}
-	
-	return files
+
+	return infos
 }
 
-func (s storage) getScriptDir() string {
+func (s Storage) getScriptDir() string {
 	return path.Join(s.storeDir, "scripts")
 }
 
-func (s storage) getScriptPath(name string) string {
+func (s Storage) getScriptPath(name string) string {
 	return path.Join(s.storeDir, "scripts", name)
 }
 
-func (s storage) LoadScript(name string) (string, error) {
-	path := s.getScriptPath(name)
+func (s Storage) LoadScript(info ScriptInfo) (string, error) {
+	path := s.getScriptPath(info.Name())
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return "", err
@@ -53,6 +60,9 @@ func (s storage) LoadScript(name string) (string, error) {
 	return string(data), nil
 }
 
+func (s Storage) GetLogPath() string {
+	return path.Join(s.storeDir, "debug.log")
+}
 
 func getConfigDirectory() string {
 	switch runtime.GOOS {
