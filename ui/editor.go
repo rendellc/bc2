@@ -29,6 +29,8 @@ func LoadScriptCmd(storage *storage.Storage, scriptInfo storage.ScriptInfo) tea.
 	}
 }
 
+
+
 func CreateEditor(storage *storage.Storage) Editor {
 	return Editor{
 		storage:      storage,
@@ -66,11 +68,24 @@ func (e Editor) Update(msg tea.Msg) (Editor, tea.Cmd) {
 			return e, nil
 		}
 		switch msg.String() {
+		case "ctrl+r":
+			return e, e.evaluateScriptCmd()
+
 		case "ctrl+s":
+			content := e.scriptEditor.GetScriptString()
+			if len(content) == 0 {
+				log.Printf("Script is empty. Ignoring save")
+				return e, nil
+			}
+
 			if e.scriptInfo == nil {
 				log.Printf("Saving new script")
+				e.storage.SaveNewScript(content)
 			} else {
-				log.Printf("Saving %s", (*e.scriptInfo).Name())
+				name := (*e.scriptInfo).Name()
+				log.Printf("Saving %s", name)
+				e.storage.SaveScript(name, content)
+
 			}
 
 		}
@@ -84,4 +99,19 @@ func (e Editor) Update(msg tea.Msg) (Editor, tea.Cmd) {
 
 func (e Editor) View() string {
 	return fmt.Sprintf("Editor\n\n%s", e.scriptEditor.View())
+}
+
+type evaluateScriptMsg []langs.CellResult
+func (e Editor) evaluateScriptCmd() tea.Cmd {
+	interpreter := langs.CreateLuaScriptInterpreter()
+	script := langs.LuaScript(e.scriptEditor.GetScriptString())
+
+	return func() tea.Msg {
+		results, err := interpreter.Run(script)
+		if err != nil {
+			log.Printf("error evaluating script: %s", err.Error())
+		}
+
+		return evaluateScriptMsg(results)
+	}
 }

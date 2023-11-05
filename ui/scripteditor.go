@@ -4,23 +4,32 @@ import (
 	"fmt"
 	"rendellc/bc2/langs"
 
-	// "github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 type scriptEditor struct {
-	cellEditors      []textinput.Model
-	focusedCellIndex int
+	cells        []cell
+	focusedCellIndex   int
+	interpreterBuilder func() langs.LuaScriptInterpreter
 }
 
-func (s *scriptEditor) getFocusedCell() textinput.Model {
-	return s.cellEditors[s.focusedCellIndex]
+func (s *scriptEditor) getFocusedCell() cell {
+	return s.cells[s.focusedCellIndex]
+}
+
+func (s *scriptEditor) relimFocusedCellIndex() {
+	if s.focusedCellIndex < 0 {
+		s.focusedCellIndex = 0
+	}
+
+	if s.focusedCellIndex >= len(s.cells) {
+		s.focusedCellIndex = len(s.cells) - 1
+	}
 }
 
 func (s *scriptEditor) removeTrailingEmptyCells() {
-	for i := len(s.cellEditors) - 1; i > s.focusedCellIndex; i-- {
-		isEmpty := len(s.cellEditors[i].Value()) == 0
+	for i := len(s.cells) - 1; i > s.focusedCellIndex; i-- {
+		isEmpty := len(s.cells[i].Value()) == 0
 
 		if isEmpty {
 			s.removeCellAt(i)
@@ -30,51 +39,55 @@ func (s *scriptEditor) removeTrailingEmptyCells() {
 	}
 }
 
+func (s scriptEditor) GetScriptString() string {
+	content := ""
+	for i, cell := range s.cells {
+		isFinal := i == len(s.cells)-1
+		content += cell.Value()
+
+		if !isFinal {
+			content += "\n"
+		}
+	}
+
+	return content
+}
+
 func CreateScriptEditor() scriptEditor {
-	initialCell := createCellEditor()
+	initialCell := createCell()
 	initialCell.Focus()
 
 	return scriptEditor{
-		cellEditors: []textinput.Model{
-			initialCell,
-		},
+		cells:        []cell{initialCell},
+		interpreterBuilder: langs.CreateLuaScriptInterpreter,
 	}
-}
-
-func createCellEditor() textinput.Model {
-	t := textinput.New()
-	t.Placeholder = ""
-	t.Prompt = ""
-
-	t.Blur()
-	return t
 }
 
 func (s *scriptEditor) setNumberOfCells(count int) {
-	cellsToAdd := count - len(s.cellEditors)
+	cellsToAdd := count - len(s.cells)
 
 	if cellsToAdd < 0 {
-		s.cellEditors = s.cellEditors[:count]
+		s.cells = s.cells[:count]
 	}
 	if cellsToAdd > 0 {
 		for i := 0; i < cellsToAdd; i++ {
-			s.cellEditors = append(s.cellEditors, createCellEditor())
+			s.cells = append(s.cells, createCell())
 		}
 	}
 }
 
 func (s *scriptEditor) insertCellAfter(index int) {
-	s.cellEditors = append(s.cellEditors, createCellEditor())
+	s.cells = append(s.cells, createCell())
 
-	for i := len(s.cellEditors) - 2; i > index; i-- {
-		s.cellEditors[i+1] = s.cellEditors[i]
+	for i := len(s.cells) - 2; i > index; i-- {
+		s.cells[i+1] = s.cells[i]
 	}
 
-	s.cellEditors[index+1] = createCellEditor()
+	s.cells[index+1] = createCell()
 }
 
 func (s *scriptEditor) removeCellAt(index int) {
-	s.cellEditors = append(s.cellEditors[:index], s.cellEditors[index+1:]...)
+	s.cells = append(s.cells[:index], s.cells[index+1:]...)
 }
 
 func (s scriptEditor) Init() tea.Cmd {
@@ -83,35 +96,43 @@ func (s scriptEditor) Init() tea.Cmd {
 
 func (s scriptEditor) Update(msg tea.Msg) (scriptEditor, tea.Cmd) {
 	switch msg := msg.(type) {
+	case evaluateScriptMsg:
+		cellResults := []langs.CellResult(msg)
+		for i := range cellResults {
+			s.cells[i].SetResult(cellResults[i].Ok())
+		}
+
+		return s, nil
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyUp:
 			if s.focusedCellIndex > 0 {
-				s.cellEditors[s.focusedCellIndex].Blur()
+				s.cells[s.focusedCellIndex].Blur()
 				s.focusedCellIndex = s.focusedCellIndex - 1
 			}
 
-			s.cellEditors[s.focusedCellIndex].Focus()
+			s.cells[s.focusedCellIndex].Focus()
 			s.removeTrailingEmptyCells()
 			return s, nil
 		case tea.KeyDown:
-			if s.focusedCellIndex < len(s.cellEditors)-1 {
-				s.cellEditors[s.focusedCellIndex].Blur()
+			if s.focusedCellIndex < len(s.cells)-1 {
+				s.cells[s.focusedCellIndex].Blur()
 				s.focusedCellIndex = s.focusedCellIndex + 1
 			}
 
-			s.cellEditors[s.focusedCellIndex].Focus()
+			s.cells[s.focusedCellIndex].Focus()
 			return s, nil
 		case tea.KeyEnter:
 			s.insertCellAfter(s.focusedCellIndex)
-			s.cellEditors[s.focusedCellIndex].Blur()
+			s.cells[s.focusedCellIndex].Blur()
 			s.focusedCellIndex += 1
-			s.cellEditors[s.focusedCellIndex].Focus()
+			s.cells[s.focusedCellIndex].Focus()
+			return s, nil
 		}
 	}
 
-	ta, cmd := s.cellEditors[s.focusedCellIndex].Update(msg)
-	s.cellEditors[s.focusedCellIndex] = ta
+	ta, cmd := s.cells[s.focusedCellIndex].Update(msg)
+	s.cells[s.focusedCellIndex] = ta
 
 	s.removeTrailingEmptyCells()
 
@@ -121,12 +142,12 @@ func (s scriptEditor) Update(msg tea.Msg) (scriptEditor, tea.Cmd) {
 func (s scriptEditor) View() string {
 
 	allCellView := ""
-	for _, cell := range s.cellEditors {
+	for _, cell := range s.cells {
 		// isFinal := i < len(s.cellEditors)
 		allCellView += cell.View() + "\n"
 	}
 
-	numberOfCells := len(s.cellEditors)
+	numberOfCells := len(s.cells)
 	allCellView += fmt.Sprintf("\n\n\nNumber of cells: %d", numberOfCells)
 
 	return allCellView
@@ -137,6 +158,8 @@ func (s *scriptEditor) Reset(script langs.Script) {
 	s.setNumberOfCells(len(cells))
 
 	for i, cell := range cells {
-		s.cellEditors[i].SetValue(string(cell))
+		s.cells[i].SetValue(string(cell))
 	}
+
+	s.relimFocusedCellIndex()
 }

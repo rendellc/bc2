@@ -27,10 +27,10 @@ var (
 	quitTextStyle     = lipgloss.NewStyle().Margin(1, 0, 2, 4)
 )
 
-type item storage.ScriptInfo
+type historyItem storage.ScriptInfo
 
-func (i item) Title() string       { return storage.ScriptInfo(i).Name() }
-func (i item) FilterValue() string { return storage.ScriptInfo(i).Name() }
+func (i historyItem) Title() string       { return storage.ScriptInfo(i).Name() }
+func (i historyItem) FilterValue() string { return storage.ScriptInfo(i).Name() }
 
 type itemDelegate struct{}
 
@@ -38,7 +38,7 @@ func (d itemDelegate) Height() int                             { return 1 }
 func (d itemDelegate) Spacing() int                            { return 0 }
 func (d itemDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
 func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
-	i, ok := listItem.(item)
+	i, ok := listItem.(historyItem)
 	if !ok {
 		return
 	}
@@ -57,9 +57,9 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 	fmt.Fprintf(w, fn(str))
 }
 
-type historySelectMsg item
+type historySelectMsg historyItem
 
-func newHistorySelectCmd(item item) tea.Cmd {
+func newHistorySelectCmd(item historyItem) tea.Cmd {
 	return func() tea.Msg {
 		return historySelectMsg(item)
 	}
@@ -67,36 +67,44 @@ func newHistorySelectCmd(item item) tea.Cmd {
 
 type historyBrowser struct {
 	storage  *storage.Storage
-	list     list.Model
+	list     *list.Model
 	hasFocus bool
 }
 
-func CreateHistoryBrowser(storage *storage.Storage) historyBrowser {
-	scriptInfos := storage.GetScriptInfos()
-	items := []list.Item{}
-	for _, scriptInfo := range scriptInfos {
-		items = append(items, item(scriptInfo))
+func (h historyBrowser) refreshScriptBrowserCmd() tea.Cmd {
+	scriptInfos := h.storage.GetScriptInfos()
+	items := make([]list.Item,len(scriptInfos))
+	for i, scriptInfo := range scriptInfos {
+		items[i] = historyItem(scriptInfo)
 	}
 
-	l := list.New(items, itemDelegate{}, defaultWidth, listHeight)
-	l.Title = "History"
-	l.SetShowStatusBar(false)
-	l.SetFilteringEnabled(false)
-	l.Styles.Title = titleStyle
-	l.Styles.PaginationStyle = paginationStyle
-	l.Styles.HelpStyle = helpStyle
-	l.KeyMap.Quit.Unbind()
+	log.Printf("Refreshing history browser with %d items", len(scriptInfos))
+
+	return h.list.SetItems(items)
+}
+
+func CreateHistoryBrowser(storage *storage.Storage) historyBrowser {
+	items := []list.Item{}
+	listModel := new(list.Model)
+	*listModel = list.New(items, itemDelegate{}, defaultWidth, listHeight)
+	listModel.SetShowTitle(false)
+	listModel.SetShowStatusBar(false)
+	listModel.SetFilteringEnabled(false)
+	listModel.Styles.Title = titleStyle
+	listModel.Styles.PaginationStyle = paginationStyle
+	listModel.Styles.HelpStyle = helpStyle
+	listModel.KeyMap.Quit.Unbind()
 
 	return historyBrowser{
 		storage:  storage,
-		list:     l,
+		list:     listModel,
 		hasFocus: false,
 	}
 }
 
 func (h historyBrowser) Init() tea.Cmd {
 	log.Printf("Initialize historybrowser %v", h.storage)
-	return nil
+	return h.refreshScriptBrowserCmd()
 }
 
 func (h historyBrowser) Update(msg tea.Msg) (historyBrowser, tea.Cmd) {
@@ -119,7 +127,7 @@ func (h historyBrowser) Update(msg tea.Msg) (historyBrowser, tea.Cmd) {
 		}
 		switch keypress := msg.String(); keypress {
 		case "enter":
-			i, ok := h.list.SelectedItem().(item)
+			i, ok := h.list.SelectedItem().(historyItem)
 			if !ok {
 				return h, nil
 			}
@@ -130,11 +138,11 @@ func (h historyBrowser) Update(msg tea.Msg) (historyBrowser, tea.Cmd) {
 	}
 
 	var cmd tea.Cmd
-	h.list, cmd = h.list.Update(msg)
+	*h.list, cmd = h.list.Update(msg)
 
 	return h, cmd
 }
 
 func (h historyBrowser) View() string {
-	return h.list.View()
+	return "History\n\n" + h.list.View()
 }

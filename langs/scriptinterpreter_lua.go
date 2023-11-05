@@ -8,7 +8,7 @@ import (
 	lua "github.com/yuin/gopher-lua"
 )
 
-type luaScriptInterpreter struct {
+type LuaScriptInterpreter struct {
 	state *lua.LState
 }
 
@@ -34,16 +34,16 @@ const (
 	opNone					// whitespace
 )
 
-func CreateLuaScriptInterpreter() luaScriptInterpreter {
-	return luaScriptInterpreter{
+func CreateLuaScriptInterpreter() LuaScriptInterpreter {
+	return LuaScriptInterpreter{
 		state: lua.NewState(),
 	}
 }
-func (h luaScriptInterpreter) Close() {
+func (h LuaScriptInterpreter) Close() {
 	defer h.state.Close()
 }
 
-func (h luaScriptInterpreter) Run(script Script) ([]CellResult, error) {
+func (h LuaScriptInterpreter) Run(script Script) ([]CellResult, error) {
 	switch script := script.(type) {
 	case LuaScript:
 		results := []CellResult{}

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"runtime"
+	"time"
 )
 
 type Storage struct {
@@ -60,6 +61,24 @@ func (s Storage) LoadScript(info ScriptInfo) (string, error) {
 	return string(data), nil
 }
 
+func (s Storage) SaveScript(name string, content string) error {
+	scriptpath := s.getScriptPath(name)
+
+	err := os.WriteFile(scriptpath, []byte(content), 0666)
+	if err != nil {
+		log.Printf("Failed to write %s", scriptpath)
+	}
+
+	return nil
+}
+
+func (s Storage) SaveNewScript(content string) error {
+	now := time.Now()
+	scriptname := now.Format("2006-01-02-15-04-05")
+	log.Printf("Saving new script with name: %s", scriptname)
+	return s.SaveScript(scriptname, content)
+}
+ 
 func (s Storage) GetLogPath() string {
 	return path.Join(s.storeDir, "debug.log")
 }

@@ -30,9 +30,9 @@ func (a app) Init() tea.Cmd {
 	cmds := []tea.Cmd{
 		tea.EnterAltScreen,
 		focusChangeCmd(focusEditor),
+		a.history.Init(),
+		a.editor.Init(),
 	}
-	cmds = append(cmds, a.history.Init())
-	cmds = append(cmds, a.editor.Init())
 	return tea.Batch(cmds...)
 }
 

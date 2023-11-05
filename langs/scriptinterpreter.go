@@ -2,7 +2,6 @@ package langs
 
 
 type ScriptInterpreter interface {
-	FromString(string string) Script
 	Run(script Script) []CellResult
 }
 
