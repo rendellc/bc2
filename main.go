@@ -13,15 +13,13 @@ import (
 
 func main() {
 	storage := storage.LoadStorage()
-	if len(os.Getenv("DEBUG")) > 0 {
-		logpath := storage.GetLogPath()
-		f, err := tea.LogToFile(logpath, "debug")
-		if err != nil {
-			fmt.Println("fatal:", err)
-			os.Exit(1)
-		}
-		defer f.Close()
+	logpath := storage.GetLogPath()
+	f, err := tea.LogToFile(logpath, "debug")
+	if err != nil {
+		fmt.Println("fatal:", err)
+		os.Exit(1)
 	}
+	defer f.Close()
 
 	// script, err := storage.LoadScript("test2")
 	// // script, err := store.LoadScript(scriptNames[0])

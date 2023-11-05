@@ -12,6 +12,22 @@ type luaScriptInterpreter struct {
 	state *lua.LState
 }
 
+type LuaScript string
+
+func (s LuaScript) Cells() []ScriptCell {
+	lines := SplitLines(s.ToString())
+	cells := []ScriptCell{}
+	for _, line := range lines {
+		cells = append(cells, ScriptCell(line))
+	}
+
+	return cells
+}
+
+func (s LuaScript) ToString() string {
+	return string(s)
+}
+
 const (
 	opAssignment = iota		// line of form `x = 12*y*x + 2`
 	opExpression			// line of form `12*x - 2` (not valid lua)
@@ -26,40 +42,48 @@ func CreateLuaScriptInterpreter() luaScriptInterpreter {
 func (h luaScriptInterpreter) Close() {
 	defer h.state.Close()
 }
-func (h luaScriptInterpreter) Run(lines []string) []lineEvalResult {
-	results := []lineEvalResult{}
 
-	for i, line := range lines {
-		operationType := detectOperationType(line)
+func (h luaScriptInterpreter) Run(script Script) ([]CellResult, error) {
+	switch script := script.(type) {
+	case LuaScript:
+		results := []CellResult{}
+		cells := script.Cells()
 
-		if operationType == opExpression {
-			// this is not valid lua, need to prepend it 
-			// to make it an expression
-			line = fmt.Sprintf("unnamedVariable%d = %s", i, line) 
-		}
+		for i, cell := range cells {
+			luaLine := string(cell)
+			operationType := detectOperationType(luaLine)
 
-		err := h.state.DoString(line)
-		if err != nil {
-			results = append(results, EvalError(err))
-			continue
-		} 
-
-
-		hasValue := operationType == opAssignment || operationType == opExpression
-		if hasValue {
-			line = strings.TrimSpace(line)
-			if varName, err := extractVariableName(line); err != nil {
-				results = append(results, EvalError(fmt.Errorf("value parse error")))
-			} else {
-				value := h.state.GetGlobal(varName).String()
-				results = append(results, EvalOK(value))
+			if operationType == opExpression {
+				// this is not valid lua, need to prepend it 
+				// to make it an expression
+				luaLine = fmt.Sprintf("unnamedVariable%d = %s", i, luaLine) 
 			}
-		} else {
-			results = append(results, EvalOK("<no value>"))
-		}
-	}
 
-	return results
+			err := h.state.DoString(luaLine)
+			if err != nil {
+				results = append(results, EvalError(err))
+				continue
+			} 
+
+
+			hasValue := operationType == opAssignment || operationType == opExpression
+			if hasValue {
+				luaLine = strings.TrimSpace(luaLine)
+				if varName, err := extractVariableName(luaLine); err != nil {
+					results = append(results, EvalError(fmt.Errorf("value parse error")))
+				} else {
+					value := h.state.GetGlobal(varName).String()
+					results = append(results, EvalOK(value))
+				}
+			} else {
+				results = append(results, EvalOK("<no value>"))
+			}
+		}
+
+		return results, nil
+	default:
+		return nil, fmt.Errorf("Script is not a luaScript type")
+	}
 }
 
 func detectOperationType(luaLine string) uint {

@@ -3,20 +3,20 @@ package ui
 import (
 	"fmt"
 	"log"
+	"rendellc/bc2/langs"
 	"rendellc/bc2/storage"
 
-	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 type Editor struct {
 	storage      *storage.Storage
-	scriptInfo *storage.ScriptInfo
+	scriptInfo   *storage.ScriptInfo
 	scriptEditor scriptEditor
-	hasFocus bool
+	hasFocus     bool
 }
 
-type scriptLoadedMsg string
+type scriptLoadedMsg langs.Script
 
 func LoadScriptCmd(storage *storage.Storage, scriptInfo storage.ScriptInfo) tea.Cmd {
 	return func() tea.Msg {
@@ -25,20 +25,14 @@ func LoadScriptCmd(storage *storage.Storage, scriptInfo storage.ScriptInfo) tea.
 			log.Printf("Unable to load script: %v", err)
 		}
 
-		return scriptLoadedMsg(content)
+		return scriptLoadedMsg(langs.LuaScript(content))
 	}
 }
 
 func CreateEditor(storage *storage.Storage) Editor {
-	textarea := textarea.New()
-	textarea.Placeholder = "press ? for help"
-	textarea.Focus()
-	textarea.ShowLineNumbers = false
 	return Editor{
 		storage:      storage,
-		scriptEditor: scriptEditor{
-			textarea: textarea,
-		},
+		scriptEditor: CreateScriptEditor(),
 	}
 }
 
@@ -62,9 +56,9 @@ func (e Editor) Update(msg tea.Msg) (Editor, tea.Cmd) {
 
 		return e, LoadScriptCmd(e.storage, *e.scriptInfo)
 	case scriptLoadedMsg:
-		log.Printf("Script loaded: %T %+v", msg, msg)
-		e.scriptEditor.Reset(string(msg))
 
+		log.Printf("Script loaded: %T %+v", msg, msg)
+		e.scriptEditor.Reset(langs.Script(msg))
 
 		return e, focusChangeCmd(focusEditor)
 	case tea.KeyMsg:

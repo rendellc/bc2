@@ -12,13 +12,16 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-const listHeight = 14
+const listHeight = 20
 const defaultWidth = 20
+
+var blurredSelectedItemStyle     = lipgloss.NewStyle().PaddingLeft(2)
+var focusSelectedItemStyle = blurredSelectedItemStyle.Copy().Foreground(lipgloss.Color("176"))
 
 var (
 	titleStyle        = lipgloss.NewStyle().MarginLeft(2)
 	itemStyle         = lipgloss.NewStyle().PaddingLeft(4)
-	selectedItemStyle = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("176"))
+	selectedItemStyle = blurredSelectedItemStyle
 	paginationStyle   = list.DefaultStyles().PaginationStyle.PaddingLeft(4)
 	helpStyle         = list.DefaultStyles().HelpStyle.PaddingLeft(4).PaddingBottom(1)
 	quitTextStyle     = lipgloss.NewStyle().Margin(1, 0, 2, 4)
@@ -26,9 +29,8 @@ var (
 
 type item storage.ScriptInfo
 
-func (i item) Title() string { return storage.ScriptInfo(i).Name() }
+func (i item) Title() string       { return storage.ScriptInfo(i).Name() }
 func (i item) FilterValue() string { return storage.ScriptInfo(i).Name() }
-
 
 type itemDelegate struct{}
 
@@ -46,6 +48,7 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 	fn := itemStyle.Render
 	if index == m.Index() {
 		fn = func(s ...string) string {
+
 			return selectedItemStyle.Render("> " + strings.Join(s, " "))
 			// return selectedItemStyle.Render(strings.Join(s, " "))
 		}
@@ -63,8 +66,8 @@ func newHistorySelectCmd(item item) tea.Cmd {
 }
 
 type historyBrowser struct {
-	storage *storage.Storage
-	list    list.Model
+	storage  *storage.Storage
+	list     list.Model
 	hasFocus bool
 }
 
@@ -85,8 +88,8 @@ func CreateHistoryBrowser(storage *storage.Storage) historyBrowser {
 	l.KeyMap.Quit.Unbind()
 
 	return historyBrowser{
-		storage: storage,
-		list:    l,
+		storage:  storage,
+		list:     l,
 		hasFocus: false,
 	}
 }
@@ -100,6 +103,12 @@ func (h historyBrowser) Update(msg tea.Msg) (historyBrowser, tea.Cmd) {
 	switch msg := msg.(type) {
 	case focusChangeMsg:
 		h.hasFocus = (focusElement(msg) == focusHistory)
+
+		if h.hasFocus {
+			selectedItemStyle = focusSelectedItemStyle
+		} else {
+			selectedItemStyle = blurredSelectedItemStyle
+		}
 
 	case tea.WindowSizeMsg:
 		h.list.SetWidth(msg.Width / 2)

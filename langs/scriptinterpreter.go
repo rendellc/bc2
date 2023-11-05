@@ -2,34 +2,35 @@ package langs
 
 
 type ScriptInterpreter interface {
-	Run(lines []string) []lineEvalResult
+	FromString(string string) Script
+	Run(script Script) []CellResult
 }
 
-type lineEvalResult struct {
+type CellResult struct {
 	ok string
 	err error
 }
 
-func (r lineEvalResult) Ok() string {
+func (r CellResult) Ok() string {
 	return r.ok
 }
 
-func (r lineEvalResult) Err() error {
+func (r CellResult) Err() error {
 	return r.err
 }
 
-func (r lineEvalResult) IsOK() bool {
+func (r CellResult) IsOK() bool {
 	return r.err == nil
 }
 
-func EvalOK(ok string) lineEvalResult {
-	return lineEvalResult{
+func EvalOK(ok string) CellResult {
+	return CellResult{
 		ok: ok,
 	}
 }
 
-func EvalError(err error) lineEvalResult {
-	return lineEvalResult{
+func EvalError(err error) CellResult {
+	return CellResult{
 		err: err,
 	}
 }
