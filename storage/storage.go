@@ -4,7 +4,6 @@ import (
 	"log"
 	"os"
 	"path"
-	"time"
 )
 
 type Storage struct {
@@ -80,13 +79,6 @@ func (s Storage) SaveScript(name string, content string) error {
 	return nil
 }
 
-func (s Storage) SaveNewScript(content string) error {
-	now := time.Now()
-	scriptname := now.Format("2006-01-02-15-04-05")
-	log.Printf("Saving new script with name: %s", scriptname)
-	return s.SaveScript(scriptname, content)
-}
- 
 func (s Storage) GetLogPath() string {
 	return path.Join(s.storeDir, "debug.log")
 }

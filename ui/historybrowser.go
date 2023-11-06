@@ -109,6 +109,8 @@ func (h historyBrowser) Init() tea.Cmd {
 
 func (h historyBrowser) Update(msg tea.Msg) (historyBrowser, tea.Cmd) {
 	switch msg := msg.(type) {
+	case fileSavedMsg:
+		return h, h.refreshScriptBrowserCmd()
 	case focusChangeMsg:
 		h.hasFocus = (focusElement(msg) == focusHistory)
 
@@ -117,7 +119,6 @@ func (h historyBrowser) Update(msg tea.Msg) (historyBrowser, tea.Cmd) {
 		} else {
 			selectedItemStyle = blurredSelectedItemStyle
 		}
-
 	case tea.WindowSizeMsg:
 		h.list.SetWidth(msg.Width / 2)
 		return h, nil

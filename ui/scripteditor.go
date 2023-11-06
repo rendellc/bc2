@@ -5,10 +5,13 @@ import (
 	"rendellc/bc2/langs"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
+var scriptEditorStyle = lipgloss.NewStyle()
+
 type scriptEditor struct {
-	cells        []cell
+	cells              []cell
 	focusedCellIndex   int
 	interpreterBuilder func() langs.LuaScriptInterpreter
 }
@@ -58,7 +61,7 @@ func CreateScriptEditor() scriptEditor {
 	initialCell.Focus()
 
 	return scriptEditor{
-		cells:        []cell{initialCell},
+		cells:              []cell{initialCell},
 		interpreterBuilder: langs.CreateLuaScriptInterpreter,
 	}
 }
@@ -97,6 +100,7 @@ func (s scriptEditor) getMaxCellValueWidth() int {
 		if cellWidth > maxLength {
 			maxLength = cellWidth
 		}
+
 	}
 
 	return maxLength
@@ -127,7 +131,7 @@ func (s scriptEditor) Update(msg tea.Msg) (scriptEditor, tea.Cmd) {
 
 			// pressed delete at beginning of cell and have cells above
 			s.cells[s.focusedCellIndex].Blur()
-			previousCellValue := s.cells[s.focusedCellIndex - 1].Value()
+			previousCellValue := s.cells[s.focusedCellIndex-1].Value()
 			cellValue := s.cells[s.focusedCellIndex].Value()
 			s.removeCellAt(s.focusedCellIndex)
 			s.focusedCellIndex -= 1
@@ -174,18 +178,17 @@ func (s scriptEditor) Update(msg tea.Msg) (scriptEditor, tea.Cmd) {
 	return s, cmd
 }
 
-func (s scriptEditor) View() string {
-	cellValueWidth := s.getMaxCellValueWidth() + 1 // +1 to accomodate cursor
-
+func (s scriptEditor) View(width int) string {
 	allCellView := ""
 	for _, cell := range s.cells {
-		allCellView += cell.View(cellValueWidth) + "\n"
+		allCellView += cell.View(width) + "\n"
 	}
 
 	numberOfCells := len(s.cells)
-	allCellView += fmt.Sprintf("\n\n\nNumber of cells: %d", numberOfCells)
+	allCellView = scriptEditorStyle.Render(allCellView)
+	debugInformation := fmt.Sprintf("Number of cells: %d", numberOfCells)
 
-	return allCellView
+	return allCellView + "\n\n\n" + debugInformation
 }
 
 func (s *scriptEditor) Reset(script langs.Script) {

@@ -46,15 +46,17 @@ func (a app) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyCtrlC:
 			return a, tea.Quit
 		case tea.KeyTab:
-			if a.focusElement == focusEditor {
+			switch a.focusElement {
+			case focusEditor:
+				cmds = append(cmds, focusChangeCmd(focusFilename))
+			case focusFilename:
 				cmds = append(cmds, focusChangeCmd(focusHistory))
-			} else {
+			case focusHistory:
 				cmds = append(cmds, focusChangeCmd(focusEditor))
 			}
 		}
 	case focusChangeMsg:
 		a.focusElement = focusElement(msg)
-
 	}
 
 	a.history, cmd = a.history.Update(msg)

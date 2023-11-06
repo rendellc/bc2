@@ -12,9 +12,9 @@ func color(s string) lipgloss.Color {
 	return lipgloss.Color(s)
 }
 
-var cellStyle = lipgloss.NewStyle().Padding(2)
+var cellStyle = lipgloss.NewStyle()
 var cellInputStyle = lipgloss.NewStyle()
-var cellResultStyle = lipgloss.NewStyle().Foreground(color("51"))
+var cellResultStyle = lipgloss.NewStyle()
 
 type cell struct {
 	input  textinput.Model
@@ -72,8 +72,15 @@ func (c cell) Update(msg tea.Msg) (cell, tea.Cmd) {
 }
 
 func (c cell) View(cellWidth int) string {
-	inputStyleRender := cellInputStyle.Width(cellWidth).Render
-	return cellInputStyle.Render(fmt.Sprintf("%s\t\t%s",
-		inputStyleRender(c.input.View()),
-		cellResultStyle.Render(c.result)))
+	hasContent := len(c.input.Value()) > 0
+	inputView := c.input.View()
+
+	resultView := ""
+	if hasContent {
+		resultView = "= " + c.result
+	}
+
+	return cellStyle.Render(fmt.Sprintf("%s\t\t\t\t%s",
+		cellInputStyle.Render(inputView),
+		cellResultStyle.Render(resultView)))
 }
