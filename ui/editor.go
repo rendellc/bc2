@@ -68,9 +68,6 @@ func (e Editor) Update(msg tea.Msg) (Editor, tea.Cmd) {
 			return e, nil
 		}
 		switch msg.String() {
-		case "ctrl+r":
-			return e, e.evaluateScriptCmd()
-
 		case "ctrl+s":
 			content := e.scriptEditor.GetScriptString()
 			if len(content) == 0 {
@@ -92,7 +89,7 @@ func (e Editor) Update(msg tea.Msg) (Editor, tea.Cmd) {
 	}
 
 	e.scriptEditor, cmd = e.scriptEditor.Update(msg)
-	cmds = append(cmds, cmd)
+	cmds = append(cmds, cmd, e.evaluateScriptCmd())
 
 	return e, tea.Batch(cmds...)
 }

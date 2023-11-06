@@ -12,7 +12,7 @@ func color(s string) lipgloss.Color {
 	return lipgloss.Color(s)
 }
 
-var cellStyle = lipgloss.NewStyle()
+var cellStyle = lipgloss.NewStyle().Padding(2)
 var cellInputStyle = lipgloss.NewStyle()
 var cellResultStyle = lipgloss.NewStyle().Foreground(color("51"))
 
@@ -29,12 +29,20 @@ func createCell() cell {
 	t.Blur()
 	return cell{
 		input:  t,
-		result: "<result>",
+		result: "",
 	}
 }
 
 func (c *cell) SetValue(value string) {
 	c.input.SetValue(value)
+}
+
+func (c cell) Position() int {
+	return c.input.Position()
+}
+
+func (c *cell) SetCursor(pos int) {
+	c.input.SetCursor(pos)
 }
 
 func (c *cell) SetResult(result string) {
@@ -63,8 +71,9 @@ func (c cell) Update(msg tea.Msg) (cell, tea.Cmd) {
 	return c, cmd
 }
 
-func (c cell) View() string {
+func (c cell) View(cellWidth int) string {
+	inputStyleRender := cellInputStyle.Width(cellWidth).Render
 	return cellInputStyle.Render(fmt.Sprintf("%s\t\t%s",
-		cellInputStyle.Render(c.input.View()),
+		inputStyleRender(c.input.View()),
 		cellResultStyle.Render(c.result)))
 }

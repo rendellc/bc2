@@ -90,6 +90,18 @@ func (s *scriptEditor) removeCellAt(index int) {
 	s.cells = append(s.cells[:index], s.cells[index+1:]...)
 }
 
+func (s scriptEditor) getMaxCellValueWidth() int {
+	maxLength := 0
+	for _, cell := range s.cells {
+		cellWidth := len(cell.Value())
+		if cellWidth > maxLength {
+			maxLength = cellWidth
+		}
+	}
+
+	return maxLength
+}
+
 func (s scriptEditor) Init() tea.Cmd {
 	return nil
 }
@@ -105,21 +117,44 @@ func (s scriptEditor) Update(msg tea.Msg) (scriptEditor, tea.Cmd) {
 		return s, nil
 	case tea.KeyMsg:
 		switch msg.Type {
+		case tea.KeyBackspace:
+			if s.focusedCellIndex == 0 {
+				break
+			}
+			if s.cells[s.focusedCellIndex].Position() != 0 {
+				break
+			}
+
+			// pressed delete at beginning of cell and have cells above
+			s.cells[s.focusedCellIndex].Blur()
+			previousCellValue := s.cells[s.focusedCellIndex - 1].Value()
+			cellValue := s.cells[s.focusedCellIndex].Value()
+			s.removeCellAt(s.focusedCellIndex)
+			s.focusedCellIndex -= 1
+			s.cells[s.focusedCellIndex].SetValue(previousCellValue + cellValue)
+			s.cells[s.focusedCellIndex].SetCursor(len(previousCellValue))
+			s.cells[s.focusedCellIndex].Focus()
+
+			return s, nil
 		case tea.KeyUp:
+			cellPos := s.getFocusedCell().Position()
 			if s.focusedCellIndex > 0 {
 				s.cells[s.focusedCellIndex].Blur()
 				s.focusedCellIndex = s.focusedCellIndex - 1
 			}
 
+			s.cells[s.focusedCellIndex].SetCursor(cellPos)
 			s.cells[s.focusedCellIndex].Focus()
 			s.removeTrailingEmptyCells()
 			return s, nil
 		case tea.KeyDown:
+			cellPos := s.getFocusedCell().Position()
 			if s.focusedCellIndex < len(s.cells)-1 {
 				s.cells[s.focusedCellIndex].Blur()
 				s.focusedCellIndex = s.focusedCellIndex + 1
 			}
 
+			s.cells[s.focusedCellIndex].SetCursor(cellPos)
 			s.cells[s.focusedCellIndex].Focus()
 			return s, nil
 		case tea.KeyEnter:
@@ -140,11 +175,11 @@ func (s scriptEditor) Update(msg tea.Msg) (scriptEditor, tea.Cmd) {
 }
 
 func (s scriptEditor) View() string {
+	cellValueWidth := s.getMaxCellValueWidth() + 1 // +1 to accomodate cursor
 
 	allCellView := ""
 	for _, cell := range s.cells {
-		// isFinal := i < len(s.cellEditors)
-		allCellView += cell.View() + "\n"
+		allCellView += cell.View(cellValueWidth) + "\n"
 	}
 
 	numberOfCells := len(s.cells)
