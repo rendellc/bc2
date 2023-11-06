@@ -12,9 +12,9 @@ func color(s string) lipgloss.Color {
 	return lipgloss.Color(s)
 }
 
-var cellStyle = lipgloss.NewStyle().Width(80)
-var cellInputStyle = lipgloss.NewStyle().Width(60).Foreground(color("51"))
-var cellResultStyle = lipgloss.NewStyle().Foreground(color("23"))
+var cellStyle = lipgloss.NewStyle()
+var cellInputStyle = lipgloss.NewStyle()
+var cellResultStyle = lipgloss.NewStyle().Foreground(color("51"))
 
 type cell struct {
 	input  textinput.Model

@@ -1,11 +1,9 @@
 package storage
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"path"
-	"runtime"
 	"time"
 )
 
@@ -15,6 +13,16 @@ type Storage struct {
 
 func LoadStorage() Storage {
 	storeDir := getConfigDirectory()
+
+	log.Printf("Checking if %v exists", storeDir)
+	err := os.MkdirAll(storeDir, os.ModeDir)
+	if err != nil {
+		log.Fatalf("Unable to make config directory: %v", err.Error())
+	}
+	err = os.MkdirAll(path.Join(storeDir,"scripts"), os.ModeDir)
+	if err != nil {
+		log.Fatalf("Unable to make script directory: %v", err.Error())
+	}
 
 	return Storage{
 		storeDir: storeDir,
@@ -84,11 +92,10 @@ func (s Storage) GetLogPath() string {
 }
 
 func getConfigDirectory() string {
-	switch runtime.GOOS {
-	case "linux":
-		return fmt.Sprintf("%s/.config/bc2", os.Getenv("HOME"))
+	confdir, err := os.UserConfigDir()
+	if err != nil {
+		log.Fatalf("Unable to determine config dir: %s", err.Error())
 	}
 
-	log.Fatalf("Config directory not implemented for os '%s'", runtime.GOOS)
-	return "" // note: unreachable
+	return path.Join(confdir, "bc2")
 }
