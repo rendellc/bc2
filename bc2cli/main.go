@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"rendellc/bc2/storage"
-	"rendellc/bc2/ui"
+	"rendellc/bc2/bc2cli/ui"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
