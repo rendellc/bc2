@@ -27,10 +27,10 @@ var (
 	quitTextStyle     = lipgloss.NewStyle().Margin(1, 0, 2, 4)
 )
 
-type historyItem storage.ScriptInfo
+type historyItem storage.StoreMeta
 
-func (i historyItem) Title() string       { return storage.ScriptInfo(i).Name() }
-func (i historyItem) FilterValue() string { return storage.ScriptInfo(i).Name() }
+func (i historyItem) Title() string       { return storage.StoreMeta(i).Name() }
+func (i historyItem) FilterValue() string { return storage.StoreMeta(i).Name() }
 
 type itemDelegate struct{}
 
@@ -66,13 +66,18 @@ func newHistorySelectCmd(item historyItem) tea.Cmd {
 }
 
 type historyBrowser struct {
-	storage  *storage.Storage
+	storage  storage.Store
 	list     *list.Model
 	hasFocus bool
 }
 
 func (h historyBrowser) refreshScriptBrowserCmd() tea.Cmd {
-	scriptInfos := h.storage.GetScriptInfos()
+	scriptInfos, err := h.storage.GetScriptInfos()
+	if err != nil {
+		log.Printf("refresh script info failed: %s", err.Error())
+		return nil
+	}
+
 	items := make([]list.Item,len(scriptInfos))
 	for i, scriptInfo := range scriptInfos {
 		items[i] = historyItem(scriptInfo)
@@ -83,7 +88,7 @@ func (h historyBrowser) refreshScriptBrowserCmd() tea.Cmd {
 	return h.list.SetItems(items)
 }
 
-func CreateHistoryBrowser(storage *storage.Storage) historyBrowser {
+func CreateHistoryBrowser(storage storage.Store) historyBrowser {
 	items := []list.Item{}
 	listModel := new(list.Model)
 	*listModel = list.New(items, itemDelegate{}, defaultWidth, listHeight)

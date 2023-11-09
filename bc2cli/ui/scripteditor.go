@@ -2,7 +2,7 @@ package ui
 
 import (
 	"fmt"
-	"rendellc/bc2/langs"
+	"rendellc/bc2/calc"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -13,7 +13,7 @@ var scriptEditorStyle = lipgloss.NewStyle()
 type scriptEditor struct {
 	cells              []cell
 	focusedCellIndex   int
-	interpreterBuilder func() langs.LuaScriptInterpreter
+	interpreterBuilder func() calc.LuaScriptInterpreter
 }
 
 func (s *scriptEditor) getFocusedCell() cell {
@@ -62,7 +62,7 @@ func CreateScriptEditor() scriptEditor {
 
 	return scriptEditor{
 		cells:              []cell{initialCell},
-		interpreterBuilder: langs.CreateLuaScriptInterpreter,
+		interpreterBuilder: calc.CreateLuaScriptInterpreter,
 	}
 }
 
@@ -113,7 +113,7 @@ func (s scriptEditor) Init() tea.Cmd {
 func (s scriptEditor) Update(msg tea.Msg) (scriptEditor, tea.Cmd) {
 	switch msg := msg.(type) {
 	case evaluateScriptMsg:
-		cellResults := []langs.CellResult(msg)
+		cellResults := []calc.CellResult(msg)
 		for i := range cellResults {
 			s.cells[i].SetResult(cellResults[i].Ok())
 		}
@@ -191,7 +191,7 @@ func (s scriptEditor) View(width int) string {
 	return allCellView + "\n\n\n" + debugInformation
 }
 
-func (s *scriptEditor) Reset(script langs.Script) {
+func (s *scriptEditor) Reset(script calc.Script) {
 	cells := script.Cells()
 	s.setNumberOfCells(len(cells))
 

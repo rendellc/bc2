@@ -1,4 +1,4 @@
-package langs
+package calc
 
 
 type Script interface {

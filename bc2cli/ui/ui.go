@@ -10,13 +10,13 @@ import (
 )
 
 type app struct {
-	storage      *storage.Storage
+	storage      storage.Store
 	history      historyBrowser
 	editor       Editor
 	focusElement focusElement
 }
 
-func CreateApp(storage *storage.Storage) app {
+func CreateApp(storage storage.Store) app {
 	return app{
 		storage:      storage,
 		history:      CreateHistoryBrowser(storage),

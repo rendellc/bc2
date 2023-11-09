@@ -3,7 +3,7 @@ package ui
 import (
 	"fmt"
 	"log"
-	"rendellc/bc2/langs"
+	"rendellc/bc2/calc"
 	"rendellc/bc2/storage"
 	"time"
 
@@ -14,28 +14,28 @@ import (
 var scriptEditorWidth int = 30
 
 type Editor struct {
-	filename	textinput.Model
-	storage      *storage.Storage
-	scriptInfo   *storage.ScriptInfo
+	filename     textinput.Model
+	store      storage.Store
+	scriptMetadata   *storage.StoreMeta
 	scriptEditor scriptEditor
 	focusElement focusElement
 }
 
-type scriptLoadedMsg langs.Script
+type scriptLoadedMsg calc.Script
 
-func LoadScriptCmd(storage *storage.Storage, scriptInfo storage.ScriptInfo) tea.Cmd {
+func LoadScriptCmd(store storage.Store, scriptMeta storage.StoreMeta) tea.Cmd {
 	return func() tea.Msg {
-		content, err := storage.LoadScript(scriptInfo)
+		content, err := store.GetScript(scriptMeta)
 		if err != nil {
 			log.Printf("Unable to load script: %v", err)
 		}
 
-		return scriptLoadedMsg(langs.LuaScript(content))
+		return scriptLoadedMsg(calc.LuaScript(content))
 	}
 }
 
-
 type fileSavedMsg string
+
 func fileSavedCmd(filename string) tea.Cmd {
 	return func() tea.Msg {
 		return fileSavedMsg(filename)
@@ -51,7 +51,8 @@ func (e *Editor) trySave() tea.Cmd {
 	}
 
 	name := ""
-	if e.scriptInfo == nil {
+	scriptMeta := new(storage.StoreMeta)
+	if e.scriptMetadata == nil {
 		log.Printf("Saving new script")
 		if len(e.filename.Value()) == 0 {
 			// no filename provided
@@ -60,22 +61,21 @@ func (e *Editor) trySave() tea.Cmd {
 		}
 
 		name = e.filename.Value()
+		*scriptMeta = storage.CreateNewMetaByName(name)
 	} else {
-		name = (*e.scriptInfo).Name()
+		*scriptMeta = *e.scriptMetadata
 	}
 
-	// TODO: Handle e.scriptInfo != nil and 
+	// TODO: Handle e.scriptInfo != nil and
 	// e.filename.Value() != e.scriptInfo.Name()
 	// The user has then changed the filename so the old file should be removed
 	log.Printf("Saving %s", name)
-	e.storage.SaveScript(name, content)
+	e.store.SaveScript(*scriptMeta, content)
 
 	return fileSavedCmd(name)
 }
 
-
-
-func CreateEditor(storage *storage.Storage) Editor {
+func CreateEditor(store storage.Store) Editor {
 	now := time.Now()
 	defaultscriptname := now.Format("2006-01-02-15-04-05")
 	filename := textinput.New()
@@ -84,14 +84,14 @@ func CreateEditor(storage *storage.Storage) Editor {
 	filename.Blur()
 
 	return Editor{
-		filename: filename,
-		storage:      storage,
+		filename:     filename,
+		store:      store,
 		scriptEditor: CreateScriptEditor(),
 	}
 }
 
 func (e Editor) Init() tea.Cmd {
-	log.Printf("Initialize editor with %v", e.storage)
+	log.Printf("Initialize editor with %v", e.store)
 	return nil
 }
 
@@ -103,21 +103,21 @@ func (e Editor) Update(msg tea.Msg) (Editor, tea.Cmd) {
 	case focusChangeMsg:
 		e.focusElement = focusElement(msg)
 		if e.focusElement == focusFilename {
-			 e.filename.Focus()
+			e.filename.Focus()
 		} else {
-			 e.filename.Blur()
+			e.filename.Blur()
 		}
 		return e, nil
 	case historySelectMsg:
 		log.Printf("Editor history selected: %T %+v", msg, msg)
-		e.scriptInfo = new(storage.ScriptInfo)
-		*e.scriptInfo = storage.ScriptInfo(msg)
+		e.scriptMetadata = new(storage.StoreMeta)
+		*e.scriptMetadata = storage.StoreMeta(historyItem(msg))
 
-		return e, LoadScriptCmd(e.storage, *e.scriptInfo)
+		return e, LoadScriptCmd(e.store, *e.scriptMetadata)
 	case scriptLoadedMsg:
 
 		log.Printf("Script loaded: %T %+v", msg, msg)
-		e.scriptEditor.Reset(langs.Script(msg))
+		e.scriptEditor.Reset(calc.Script(msg))
 
 		return e, tea.Batch(focusChangeCmd(focusEditor), e.evaluateScriptCmd())
 	case tea.KeyMsg:
@@ -147,10 +147,11 @@ func (e Editor) View() string {
 	return fmt.Sprintf("Editor\n%s\n%s", e.filename.View(), e.scriptEditor.View(scriptEditorWidth))
 }
 
-type evaluateScriptMsg []langs.CellResult
+type evaluateScriptMsg []calc.CellResult
+
 func (e Editor) evaluateScriptCmd() tea.Cmd {
-	interpreter := langs.CreateLuaScriptInterpreter()
-	script := langs.LuaScript(e.scriptEditor.GetScriptString())
+	interpreter := calc.CreateLuaScriptInterpreter()
+	script := calc.LuaScript(e.scriptEditor.GetScriptString())
 
 	return func() tea.Msg {
 		results, err := interpreter.Run(script)

@@ -1,4 +1,4 @@
-module rendellc/bc2/langs
+module rendellc/bc2/calc
 
 go 1.21.3
 
