@@ -3,6 +3,8 @@ package ui
 import (
 	"fmt"
 	"rendellc/bc2/calc"
+	"rendellc/bc2/calc/lua"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -10,10 +12,17 @@ import (
 
 var scriptEditorStyle = lipgloss.NewStyle()
 
+
+type scriptChangedMsg struct{}
+func scriptChangedCmd() tea.Msg {
+	return scriptChangedMsg{}
+}
+
 type scriptEditor struct {
 	cells              []cell
 	focusedCellIndex   int
-	interpreterBuilder func() calc.LuaScriptInterpreter
+	numberOfEvaluations int
+	interpreterBuilder func() lua.LuaScriptInterpreter
 }
 
 func (s *scriptEditor) getFocusedCell() cell {
@@ -62,7 +71,8 @@ func CreateScriptEditor() scriptEditor {
 
 	return scriptEditor{
 		cells:              []cell{initialCell},
-		interpreterBuilder: calc.CreateLuaScriptInterpreter,
+		numberOfEvaluations: 0,
+		interpreterBuilder: lua.CreateLuaScriptInterpreter,
 	}
 }
 
@@ -111,15 +121,17 @@ func (s scriptEditor) Init() tea.Cmd {
 }
 
 func (s scriptEditor) Update(msg tea.Msg) (scriptEditor, tea.Cmd) {
+	scriptMayHaveChanged := false
 	switch msg := msg.(type) {
 	case evaluateScriptMsg:
-		cellResults := []calc.CellResult(msg)
-		for i := range cellResults {
-			s.cells[i].SetResult(cellResults[i].Ok())
+		s.numberOfEvaluations += 1
+		for _, lineResult := range []calc.InterpreterLineResult(msg) {
+			s.SetResult(lineResult)
 		}
 
 		return s, nil
 	case tea.KeyMsg:
+		scriptMayHaveChanged = true
 		switch msg.Type {
 		case tea.KeyBackspace:
 			if s.focusedCellIndex == 0 {
@@ -139,7 +151,7 @@ func (s scriptEditor) Update(msg tea.Msg) (scriptEditor, tea.Cmd) {
 			s.cells[s.focusedCellIndex].SetCursor(len(previousCellValue))
 			s.cells[s.focusedCellIndex].Focus()
 
-			return s, nil
+			return s, scriptChangedCmd
 		case tea.KeyUp:
 			cellPos := s.getFocusedCell().Position()
 			if s.focusedCellIndex > 0 {
@@ -166,16 +178,29 @@ func (s scriptEditor) Update(msg tea.Msg) (scriptEditor, tea.Cmd) {
 			s.cells[s.focusedCellIndex].Blur()
 			s.focusedCellIndex += 1
 			s.cells[s.focusedCellIndex].Focus()
-			return s, nil
+			return s, scriptChangedCmd
 		}
 	}
 
+	preUpdateFocusCellLength := s.cells[s.focusedCellIndex].Length()
 	ta, cmd := s.cells[s.focusedCellIndex].Update(msg)
+	postUpdateFocusCellLength := s.cells[s.focusedCellIndex].Length()
+
 	s.cells[s.focusedCellIndex] = ta
+
+	if preUpdateFocusCellLength != postUpdateFocusCellLength {
+		scriptMayHaveChanged = true
+	}
 
 	s.removeTrailingEmptyCells()
 
-	return s, cmd
+	cmds := []tea.Cmd{
+		cmd,
+	}
+	if scriptMayHaveChanged {
+		cmds = append(cmds, scriptChangedCmd)
+	}
+	return s, tea.Batch(cmds...)
 }
 
 func (s scriptEditor) View(width int) string {
@@ -186,18 +211,29 @@ func (s scriptEditor) View(width int) string {
 
 	numberOfCells := len(s.cells)
 	allCellView = scriptEditorStyle.Render(allCellView)
-	debugInformation := fmt.Sprintf("Number of cells: %d", numberOfCells)
+	debugInformation := strings.Builder{}
+	debugInformation.WriteString(fmt.Sprintf("Number of cells: %d", numberOfCells))
+	debugInformation.WriteString("\n")
+	debugInformation.WriteString(fmt.Sprintf("Number of evals: %d", s.numberOfEvaluations))
 
-	return allCellView + "\n\n\n" + debugInformation
+	return allCellView + "\n\n\n" + debugInformation.String()
 }
 
-func (s *scriptEditor) Reset(script calc.Script) {
-	cells := script.Cells()
-	s.setNumberOfCells(len(cells))
+func (s *scriptEditor) Reset(script string) {
+	lines := calc.SplitLines(script)
+	s.setNumberOfCells(len(lines))
 
-	for i, cell := range cells {
-		s.cells[i].SetValue(string(cell))
+	for i, line := range lines {
+		s.cells[i].SetValue(line)
 	}
 
 	s.relimFocusedCellIndex()
+}
+
+func (s *scriptEditor) SetResult(result calc.InterpreterLineResult) {
+	index := result.Line() - 1
+	if index < 0 || index >= len(s.cells) {
+		return
+	}
+	s.cells[index].SetResult(result.Message())
 }

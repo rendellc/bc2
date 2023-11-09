@@ -65,6 +65,10 @@ func (c cell) Init() tea.Cmd {
 	return nil
 }
 
+func (c cell) Length() int {
+	return len(c.input.Value())
+}
+
 func (c cell) Update(msg tea.Msg) (cell, tea.Cmd) {
 	cellInput, cmd := c.input.Update(msg)
 	c.input = cellInput

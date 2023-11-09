@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"rendellc/bc2/calc"
+	"rendellc/bc2/calc/lua"
 	"rendellc/bc2/storage"
 	"time"
 
@@ -21,7 +22,7 @@ type Editor struct {
 	focusElement focusElement
 }
 
-type scriptLoadedMsg calc.Script
+type scriptLoadedMsg string
 
 func LoadScriptCmd(store storage.Store, scriptMeta storage.StoreMeta) tea.Cmd {
 	return func() tea.Msg {
@@ -30,7 +31,7 @@ func LoadScriptCmd(store storage.Store, scriptMeta storage.StoreMeta) tea.Cmd {
 			log.Printf("Unable to load script: %v", err)
 		}
 
-		return scriptLoadedMsg(calc.LuaScript(content))
+		return scriptLoadedMsg(content)
 	}
 }
 
@@ -116,10 +117,12 @@ func (e Editor) Update(msg tea.Msg) (Editor, tea.Cmd) {
 		return e, LoadScriptCmd(e.store, *e.scriptMetadata)
 	case scriptLoadedMsg:
 
-		log.Printf("Script loaded: %T %+v", msg, msg)
-		e.scriptEditor.Reset(calc.Script(msg))
+		log.Printf("Script loaded: %+v", msg)
+		e.scriptEditor.Reset(string(msg))
 
 		return e, tea.Batch(focusChangeCmd(focusEditor), e.evaluateScriptCmd())
+	case scriptChangedMsg:
+		return e, e.evaluateScriptCmd()
 	case tea.KeyMsg:
 		if !(e.focusElement == focusEditor || e.focusElement == focusFilename) {
 			return e, nil
@@ -134,7 +137,7 @@ func (e Editor) Update(msg tea.Msg) (Editor, tea.Cmd) {
 	switch e.focusElement {
 	case focusEditor:
 		e.scriptEditor, cmd = e.scriptEditor.Update(msg)
-		cmds = append(cmds, cmd, e.evaluateScriptCmd())
+		cmds = append(cmds, cmd)
 	case focusFilename:
 		e.filename, cmd = e.filename.Update(msg)
 		cmds = append(cmds, cmd)
@@ -147,17 +150,14 @@ func (e Editor) View() string {
 	return fmt.Sprintf("Editor\n%s\n%s", e.filename.View(), e.scriptEditor.View(scriptEditorWidth))
 }
 
-type evaluateScriptMsg []calc.CellResult
+type evaluateScriptMsg calc.InterpreterResult
 
 func (e Editor) evaluateScriptCmd() tea.Cmd {
-	interpreter := calc.CreateLuaScriptInterpreter()
-	script := calc.LuaScript(e.scriptEditor.GetScriptString())
+	interpreter := lua.CreateLuaScriptInterpreter()
+	script := e.scriptEditor.GetScriptString()
 
 	return func() tea.Msg {
-		results, err := interpreter.Run(script)
-		if err != nil {
-			log.Printf("error evaluating script: %s", err.Error())
-		}
+		results := interpreter.Run(script)
 
 		return evaluateScriptMsg(results)
 	}
