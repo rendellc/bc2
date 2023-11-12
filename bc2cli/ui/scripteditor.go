@@ -122,6 +122,7 @@ func (s scriptEditor) Init() tea.Cmd {
 
 func (s scriptEditor) Update(msg tea.Msg) (scriptEditor, tea.Cmd) {
 	scriptMayHaveChanged := false
+	arrowKeyPressed := false
 	switch msg := msg.(type) {
 	case evaluateScriptMsg:
 		s.numberOfEvaluations += 1
@@ -173,6 +174,11 @@ func (s scriptEditor) Update(msg tea.Msg) (scriptEditor, tea.Cmd) {
 			s.cells[s.focusedCellIndex].SetCursor(cellPos)
 			s.cells[s.focusedCellIndex].Focus()
 			return s, nil
+		case tea.KeyLeft:
+			arrowKeyPressed = true
+		case tea.KeyRight:
+			arrowKeyPressed = true
+
 		case tea.KeyEnter:
 			s.insertCellAfter(s.focusedCellIndex)
 			s.cells[s.focusedCellIndex].Blur()
@@ -182,13 +188,13 @@ func (s scriptEditor) Update(msg tea.Msg) (scriptEditor, tea.Cmd) {
 		}
 	}
 
-	preUpdateFocusCellLength := s.cells[s.focusedCellIndex].Length()
+
+	preUpdate := s.cells[s.focusedCellIndex].Value()
 	ta, cmd := s.cells[s.focusedCellIndex].Update(msg)
-	postUpdateFocusCellLength := s.cells[s.focusedCellIndex].Length()
-
 	s.cells[s.focusedCellIndex] = ta
-
-	if preUpdateFocusCellLength != postUpdateFocusCellLength {
+	postUpdate := s.cells[s.focusedCellIndex].Value()
+	if preUpdate != postUpdate && !arrowKeyPressed {
+		// Note: arrow keys seems to trigger updates frequently
 		scriptMayHaveChanged = true
 	}
 
@@ -235,5 +241,6 @@ func (s *scriptEditor) SetResult(result calc.InterpreterLineResult) {
 	if index < 0 || index >= len(s.cells) {
 		return
 	}
-	s.cells[index].SetResult(result.Message())
+
+	s.cells[index].SetResult(result)
 }

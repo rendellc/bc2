@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"rendellc/bc2/calc"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -18,7 +19,7 @@ var cellResultStyle = lipgloss.NewStyle()
 
 type cell struct {
 	input  textinput.Model
-	result string
+	result *calc.InterpreterLineResult
 }
 
 func createCell() cell {
@@ -29,7 +30,7 @@ func createCell() cell {
 	t.Blur()
 	return cell{
 		input:  t,
-		result: "",
+		result: nil,
 	}
 }
 
@@ -45,8 +46,12 @@ func (c *cell) SetCursor(pos int) {
 	c.input.SetCursor(pos)
 }
 
-func (c *cell) SetResult(result string) {
-	c.result = result
+func (c *cell) SetResult(result calc.InterpreterLineResult) {
+	if c.result == nil {
+		c.result = new(calc.InterpreterLineResult)
+	}
+
+	*c.result = result
 }
 
 func (c cell) Value() string {
@@ -80,8 +85,11 @@ func (c cell) View(cellWidth int) string {
 	inputView := c.input.View()
 
 	resultView := ""
-	if hasContent {
-		resultView = "= " + c.result
+	if c.result != nil {
+		isError := c.result.ResultType() == calc.LineResultError
+		if hasContent && !isError {
+			resultView = "= " + c.result.Message()
+		} 
 	}
 
 	return cellStyle.Render(fmt.Sprintf("%s\t\t\t\t%s",
